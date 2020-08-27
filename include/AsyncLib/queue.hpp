@@ -9,7 +9,7 @@
 
 namespace async_lib {
 
-constexpr std::size_t DEFAULT_QUEUE_SIZE = 10;
+constexpr std::size_t DEFAULT_QUEUE_SIZE = 20;
 
 // Allows us to differentiate between empty and full queue
 constexpr std::size_t REAL_SIZE(std::size_t size) { return size + 1; }

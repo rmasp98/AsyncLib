@@ -14,6 +14,7 @@ add_executable(
   worker_test.cpp
   logger_test.cpp
   queue_test.cpp
+  observer_test.cpp
   main_test.cpp
 )
 

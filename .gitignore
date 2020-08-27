@@ -1,4 +1,6 @@
 build/
+.vscode/
+.clangd/
+
 compile_commands.json
-.vimrc
-tags
+LogFile.log

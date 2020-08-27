@@ -6,11 +6,6 @@
 #include "gmock/gmock.h"
 using namespace ::testing;
 
-// Tests
-// GetLogger creates new logger if not exist
-// GetLogger returns pointer to same logger is requested twice
-// GetLogger creates new sink if not exists (check registry)
-
 class AsyncLoggerTest : public Test {
  public:
   AsyncLoggerTest() {
@@ -163,4 +158,3 @@ TEST_F(AsyncLoggerConcurrentTest, CanCreateSinksInParalell) {
     }
   }
 }
-

@@ -66,3 +66,47 @@ So overall, the most basic use of this logger is as follows:
 auto logger = async_lib::GetLogger("MyLogger", "OutputFile.log");
 logger->Info("{} is my {}st log", Here, 1);
 ```
+
+
+## Observer
+
+This implements the observer pattern in a thread safe manner using two classes: Observer, which should be stored as a share_ptr in the classes that want to observer a subject for updates; Subject, which should be stored in classes that owns data the Observer is interested in.
+
+Observer is created with a function/lambda, which is responsible for updating any values with the notification. This can be done by binding a member function or capturing member variables in a lambda. This capture is then freed by calling Unsubscribe, which should be mostly done in the owners destructor. Observer has an assert in the destructor checking to see if the capture has been freed (Observer destructor is too late for this because the owner's member variables may have already been freed).
+
+Subject contains a list of weak_ptrs to Observers. New observers can be added through the Subscribe member. When the Notify member is called, it will loop over observers calling their callback with Notifies arguments. It will automatically remove any dead weak_ptrs.
+
+Everything here should be fully thread safe (hopefully!). The following gives a simple example for using an Observer:
+
+```C++
+class MySubject {
+  public:
+    void Subscribe(std::weak_ptr<Observer<int>> observer) {
+        subject.Subscribe(observer);
+    }
+
+    void Update(int updateValue) {
+        mainVar_ = updateValue;
+        subject.Notify(mainVar_);
+    }
+  
+  private:
+    Subject<int> subject_;
+    int mainVar_;
+}
+
+class MyObserver {
+  public:
+    MyObserver(MySubject& subject) {
+        observer_ = std::make_shared<Observer>(
+            [&](int update) { someVar = update; });
+        subject.Subscribe(observer_);
+    }
+
+    ~MyObserver() { observer_.Unsubscribe(); }
+
+  private:
+    std::shared_ptr<Observer<int>> observer_;
+    int someVar_;
+}
+```

@@ -1,10 +1,10 @@
 #include "AsyncLib/queue.hpp"
 
-#include "gtest/gtest.h"
-
 #include <memory>
 #include <thread>
 #include <vector>
+
+#include "gtest/gtest.h"
 
 using namespace ::testing;
 
@@ -107,6 +107,9 @@ TEST_F(AsyncQueueTest, CanProcessConstClasses) {
   queue.Push(1);
   ASSERT_EQ(queue.Pop(), 1);
 }
+
+///////////////////////////////////////////////////////////////////////////
+// Concurrent tests
 
 class AsyncQueueConcurrentTest : public Test {
  public:
