@@ -62,6 +62,14 @@ TEST_F(ObserverTest, NotifyDoesNotRunOnDeletedObservers) {
   ASSERT_EQ(ss.str(), "1");
 }
 
+TEST_F(ObserverTest, SubscribeCanCreateAndReturnObserver) {
+  auto observer2 = main_subject.Subscribe([&](int num) { ss << num; });
+  int notifynum = 1;
+  main_subject.Notify(notifynum);
+  ASSERT_EQ(ss.str(), "11");
+  observer2->Unsubscribe();
+}
+
 class ObserverConcurrentTest : public Test {
  public:
   ~ObserverConcurrentTest() { main_observer->Unsubscribe(); }

@@ -19,21 +19,20 @@ class Observer {
   // Ensures that Unsubscribe is called before deletion
   ~Observer() { assert(callback_ == nullptr); }
 
-  // TODO: implement these
+  // Should only be stored as shared_ptr
   Observer(const Observer&) = delete;
   Observer& operator=(const Observer&) = delete;
   Observer(Observer&&) = delete;
   Observer& operator=(Observer&&) = delete;
 
-  void Callback(Args... args) const {
+  void Callback(Args&... args) const {
     const std::unique_lock lock(mutex_);
     if (callback_) {
       callback_(args...);
     }
   }
 
-  // Should be called in consumers destructor
-  // Prevents callback_ captured variables from being accessed after destroyed
+  // Should be called before captured variables in callback_ go out of scope
   void Unsubscribe() {
     const std::unique_lock lock(mutex_);
     callback_ = nullptr;
@@ -50,7 +49,7 @@ class Subject {
   Subject() = default;
   ~Subject() = default;
 
-  // TODO: implement these
+  // Currently no reason to copy or move
   Subject(const Subject&) = delete;
   Subject& operator=(const Subject&) = delete;
   Subject(Subject&&) = delete;
@@ -61,7 +60,14 @@ class Subject {
     observers_.push_back(observer);
   }
 
-  void Notify(Args&&... args) {
+  std::shared_ptr<Observer<Args...>> Subscribe(
+      const std::function<void(Args...)> callback) {
+    auto observer = std::make_shared<Observer<Args...>>(callback);
+    Subscribe(observer);
+    return observer;
+  }
+
+  void Notify(Args&... args) {
     std::unique_lock lock(mutex_);
     for (auto it = observers_.begin(); it != observers_.end();) {
       if (auto observer = it->lock()) {
@@ -72,6 +78,8 @@ class Subject {
       }
     }
   }
+
+  void Notify(Args&&... args) { Notify(args...); }
 
   size_t Size() const { return observers_.size(); }
 
