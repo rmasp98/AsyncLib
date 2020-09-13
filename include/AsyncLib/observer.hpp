@@ -67,7 +67,8 @@ class Subject {
     return observer;
   }
 
-  void Notify(Args&... args) {
+  // Reference removed to account for empty parameter pack
+  void Notify(Args... args) {
     std::unique_lock lock(mutex_);
     for (auto it = observers_.begin(); it != observers_.end();) {
       if (auto observer = it->lock()) {
@@ -79,7 +80,7 @@ class Subject {
     }
   }
 
-  void Notify(Args&&... args) { Notify(args...); }
+  //void Notify(Args&&... args) { Notify(args...); }
 
   size_t Size() const { return observers_.size(); }
 
