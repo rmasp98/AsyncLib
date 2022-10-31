@@ -6,14 +6,21 @@
 #include <functional>
 #include <list>
 #include <memory>
+#include <mutex>
 #include <shared_mutex>
 
 namespace async_lib {
 
-template <typename... Args>
-class Observer {
+class ObserverBase {
  public:
-  explicit Observer(const std::function<void(Args...)> callback)
+  virtual ~ObserverBase() = default;
+  virtual void Unsubscribe() = 0;
+};
+
+template <typename... Args>
+class Observer : public ObserverBase {
+ public:
+  explicit Observer(std::function<void(Args...)> const& callback)
       : callback_(callback) {}
 
   // Ensures that Unsubscribe is called before deletion
@@ -25,49 +32,56 @@ class Observer {
   Observer(Observer&&) = delete;
   Observer& operator=(Observer&&) = delete;
 
+  // TODO: do we want a pass by const& version of this function?
   void Callback(Args&... args) const {
-    const std::unique_lock lock(mutex_);
+    const std::shared_lock lock(mutex_);
     if (callback_) {
       callback_(args...);
     }
   }
 
   // Should be called before captured variables in callback_ go out of scope
-  void Unsubscribe() {
+  void Unsubscribe() override {
     const std::unique_lock lock(mutex_);
     callback_ = nullptr;
   }
 
  private:
   std::function<void(Args...)> callback_;
-  mutable std::mutex mutex_;
+  mutable std::shared_mutex mutex_;
+};
+
+class SubjectBase {
+ public:
+  virtual ~SubjectBase() = default;
 };
 
 template <typename... Args>
-class Subject {
+class Subject : public SubjectBase {
  public:
   Subject() = default;
   ~Subject() = default;
 
   // Currently no reason to copy or move
-  Subject(const Subject&) = delete;
-  Subject& operator=(const Subject&) = delete;
+  Subject(Subject const&) = delete;
+  Subject& operator=(Subject const&) = delete;
   Subject(Subject&&) = delete;
   Subject& operator=(Subject&&) = delete;
 
-  void Subscribe(std::weak_ptr<Observer<Args...>> observer) {
+  void Subscribe(std::weak_ptr<Observer<Args...>> const& observer) {
     std::unique_lock lock(mutex_);
     observers_.push_back(observer);
   }
 
   std::shared_ptr<Observer<Args...>> Subscribe(
-      const std::function<void(Args...)> callback) {
+      std::function<void(Args...)> const& callback) {
     auto observer = std::make_shared<Observer<Args...>>(callback);
     Subscribe(observer);
     return observer;
   }
 
   // Reference removed to account for empty parameter pack
+  // TODO: figure out how to allow pass by reference and rvalue
   void Notify(Args... args) {
     std::unique_lock lock(mutex_);
     for (auto it = observers_.begin(); it != observers_.end();) {
@@ -79,8 +93,6 @@ class Subject {
       }
     }
   }
-
-  //void Notify(Args&&... args) { Notify(args...); }
 
   size_t Size() const { return observers_.size(); }
 

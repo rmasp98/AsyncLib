@@ -1,8 +1,6 @@
 #ifndef ASYNC_LIB_LOGGER_HPP
 #define ASYNC_LIB_LOGGER_HPP
 
-#include <fmt/format.h>
-
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -13,6 +11,7 @@
 #include <unordered_map>
 
 #include "AsyncLib/worker.hpp"
+#include "fmt/format.h"
 
 #ifndef LOG_LEVEL
 #ifdef NDEBUG
@@ -28,7 +27,7 @@ typedef std::chrono::high_resolution_clock timer;
 
 namespace internal {
 enum class LogLevel { ERROR, WARN, INFO };
-static std::unordered_map<LogLevel, const char*> LogLevelName{
+static std::unordered_map<LogLevel, char const*> LogLevelName{
     {LogLevel::ERROR, "Error"},
     {LogLevel::WARN, "Warning"},
     {LogLevel::INFO, "Info"}};
@@ -46,21 +45,22 @@ struct Log {
 // TODO: Add colour to logs (supported in libfmt)
 class Logger {
  public:
-  Logger(std::string name, std::shared_ptr<Worker<const internal::Log>> worker)
+  Logger(std::string const& name,
+         std::shared_ptr<Worker<const internal::Log>> const& worker)
       : name_(name), worker_(worker) {}
 
   ~Logger() = default;
 
   // TODO: implement these
-  Logger(const Logger&) = delete;
-  Logger& operator=(const Logger&) = delete;
+  Logger(Logger const&) = delete;
+  Logger& operator=(Logger const&) = delete;
   Logger(Logger&&) = delete;
   Logger& operator=(Logger&&) = delete;
 
   // TODO: Look into std::forward
 
   template <typename... Args>
-  void Error(const char* format, Args&&... args) {
+  void Error(char const* format, Args&&... args) {
 #if LOG_LEVEL >= 2
     SendLog(internal::LogLevel::ERROR, format, args...);
 #endif
@@ -88,11 +88,13 @@ class Logger {
   std::shared_ptr<Worker<const internal::Log>> worker_;
 
   template <typename... Args>
-  void SendLog(internal::LogLevel level, std::string format, Args&&... args) {
+  void SendLog(internal::LogLevel const level, std::string const& format,
+               Args&&... args) {
     auto time =
         std::chrono::duration<float>(timer::now() - start_time_).count();
-    worker_->AddJob(
-        {fmt::format(format, args...), level, name_, logFormat_, time});
+    // TODO: figure out way to not use fmt::runtime
+    worker_->AddJob({fmt::format(fmt::runtime(format), args...), level, name_,
+                     logFormat_, time});
   }
 };
 
@@ -106,27 +108,32 @@ class LoggerRegistry {
   }
 
   // TODO: find out if count can crash in threaded context
-  bool LoggerExists(std::string name) const { return loggers_.count(name) > 0; }
+  bool LoggerExists(std::string const& name) const {
+    return loggers_.count(name) > 0;
+  }
 
-  void CreateLogger(std::string name, std::string sinkName = "") {
+  void CreateLogger(std::string const& name, std::string const& sinkName = "") {
+    auto sink = sinkName;
     if (!SinkExists(sinkName)) {
-      sinkName = defaultSink_;
+      sink = defaultSink_;
     }
     std::unique_lock loggerLock(loggerMutex_);
     std::shared_lock sinkLock(sinkMutex_);
-    loggers_.insert(
-        {name, std::make_shared<Logger>(name, sinks_.at(sinkName))});
+    loggers_.insert({name, std::make_shared<Logger>(name, sinks_.at(sink))});
   }
 
-  std::shared_ptr<Logger> GetLogger(std::string name) const {
+  std::shared_ptr<Logger> GetLogger(std::string const& name) const {
     std::shared_lock loggerLock(loggerMutex_);
     return loggers_.at(name);
   }
 
-  bool SinkExists(std::string name) const { return sinks_.count(name) > 0; }
+  bool SinkExists(std::string const& name) const {
+    return sinks_.contains(name);
+  }
 
   // TODO: Add ability to have mulitple sinks for one worker
-  void CreateSink(std::string name, std::shared_ptr<std::ostream> stream) {
+  void CreateSink(std::string const& name,
+                  std::shared_ptr<std::ostream> const& stream) {
     auto newWorker =
         std::make_shared<Worker<const Log>>(CreateLoggerFunction(stream));
     newWorker->StartThread();
@@ -149,9 +156,11 @@ class LoggerRegistry {
   mutable std::shared_mutex sinkMutex_;
 
   std::function<void(const Log&)> CreateLoggerFunction(
-      std::shared_ptr<std::ostream> stream) {
-    return [=](const Log& log) {
-      *stream << fmt::format(log.format, fmt::arg("time", log.time),
+      std::shared_ptr<std::ostream> const& stream) const {
+    return [=](Log const& log) {
+      // TODO: figure out way to not use fmt::runtime
+      *stream << fmt::format(fmt::runtime(log.format),
+                             fmt::arg("time", log.time),
                              fmt::arg("component", log.component),
                              fmt::arg("level", LogLevelName[log.level]),
                              fmt::arg("message", log.message))
@@ -167,8 +176,8 @@ inline static LoggerRegistry loggerRegistry{};
 // TODO: Get and Set default logger that will be stored in static
 // TODO: implement Error, Warn and Info that use the default logger
 
-std::shared_ptr<Logger> GetLogger(std::string name = "Global",
-                                  std::string filePath = "") {
+std::shared_ptr<Logger> GetLogger(std::string const& name = "Global",
+                                  std::string const& filePath = "") {
   if (!internal::loggerRegistry.LoggerExists(name)) {
     if (filePath != "" && !internal::loggerRegistry.SinkExists(filePath)) {
       auto fileHandle = std::make_shared<std::ofstream>(filePath);
@@ -179,7 +188,7 @@ std::shared_ptr<Logger> GetLogger(std::string name = "Global",
   return internal::loggerRegistry.GetLogger(name);
 }
 
-void SetDefaultSink(std::string name) {
+void SetDefaultSink(std::string const& name) {
   internal::loggerRegistry.SetDefaultSink(name);
 }
 

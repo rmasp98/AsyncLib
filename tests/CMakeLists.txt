@@ -3,7 +3,7 @@ include(FetchContent)
 FetchContent_Declare(
   googletest
   GIT_REPOSITORY https://github.com/google/googletest.git
-  GIT_TAG        master
+  GIT_TAG        main
 )
 
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
@@ -15,6 +15,7 @@ add_executable(
   logger_test.cpp
   queue_test.cpp
   observer_test.cpp
+  unordered_map_test.cpp
   main_test.cpp
 )
 
@@ -32,7 +33,14 @@ target_link_libraries(unit_tests
 )
 
 #Add "-fsanitize=thread -fPIE -pie -g" for data race testing
-target_compile_features(unit_tests PRIVATE cxx_std_17)
+# target_compile_features(unit_tests PRIVATE cxx_std_20)
+set_target_properties(unit_tests
+    PROPERTIES
+        CXX_STANDARD 20
+        CXX_STANDARD_REQUIRED YES
+        CXX_EXTENSIONS NO
+)
+
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU" OR
    "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
    target_compile_options(unit_tests PRIVATE -Wall -Wextra -Werror)
