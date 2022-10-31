@@ -20,7 +20,7 @@ target_include_directories(AsyncLib
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
 
-target_link_libraries(AsyncLib INTERFACE pthread fmt fmtlib)
+target_link_libraries(AsyncLib INTERFACE pthread fmt)
 
 if ( ASYNCLIB_BUILD_TESTS )
    enable_testing()
