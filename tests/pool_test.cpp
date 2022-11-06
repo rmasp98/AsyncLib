@@ -3,12 +3,13 @@
 #include <memory>
 
 #include "catch2/catch_test_macros.hpp"
+#include "helpers.hpp"
 
 TEST_CASE("Pool Test") {
-  PoolImpl<int> pool;
+  async_lib::Pool<int> pool;
 
   SECTION("Initial size defines the reserve of the underlying vector") {
-    std::unique_ptr<Pool> reservedPool = std::make_unique<PoolImpl<int>>(10);
+    auto reservedPool = std::make_unique<async_lib::Pool<int>>(10);
     REQUIRE(10 == reservedPool->Capacity());
   }
 
@@ -89,5 +90,22 @@ TEST_CASE("Pool Test") {
     pool.Remove(id);
     pool.Remove(id);
     REQUIRE(id != pool.Add(1));
+  }
+
+  SECTION("Pool concurrent tests") {
+    async_lib::Pool<int> conPool;
+
+    SECTION("Can add, get and remove accessed elements in thread safe way") {
+      constexpr int numThreads = 200;
+      constexpr int numLoops = 500;
+      RunInParallel(numThreads, [&](int) {
+        for (int j = 0; j < numLoops; ++j) {
+          auto id = conPool.Add(1);
+          conPool.Get(id);
+          conPool.Remove(id);
+        }
+      });
+      REQUIRE(0 == conPool.Size());
+    }
   }
 }

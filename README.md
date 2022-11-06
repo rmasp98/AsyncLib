@@ -2,6 +2,14 @@
 
 The aim of this repository is to provide a group of simple but hopefully useful classes for concurrent applications. Each class should be fully thread safe (subject to my limited knowledge of C++) but hopefuly be reasonbly performant as well
 
+Currently this list of classes are:
+ - [Queue](https://github.com/rmasp98/AsyncLib#async-queue)
+ - [Worker](https://github.com/rmasp98/AsyncLib#async-worker)
+ - [Logger](https://github.com/rmasp98/AsyncLib#async-logger)
+ - [Observer](https://github.com/rmasp98/AsyncLib#async-observer)
+ - [Unordered map](https://github.com/rmasp98/AsyncLib#async-unordered-map)
+ - [Pool](https://github.com/rmasp98/AsyncLib#async-pool)
+
 There will be future additions to this such as array and whatever else I need. 
 
 **Full disclosure: I am a very amateur C++ developer with the dream of building a game engine, so this code is fairly targeted. Use this code at your own peril!**
@@ -68,7 +76,7 @@ logger->Info("{} is my {}st log", Here, 1);
 ```
 
 
-## Observer
+## Async Observer
 
 This implements the observer pattern in a thread safe manner using two classes: Observer, which should be stored as a share_ptr in the classes that want to observer a subject for updates; Subject, which should be stored in classes that owns data the Observer is interested in.
 
@@ -110,3 +118,16 @@ class MyObserver {
     int someVar_;
 }
 ```
+
+## Async Unordered Map
+
+This is basically just a wrapper around a std::unordered_map where all of the entry points are thread safe. This does not implement the full interface of the std::unordered_map, just the most important parts.
+
+## Async Pool
+
+This implements a pool storage mechanism that can store arbitrary like objects contiguously in memory.
+
+The pool stores the data in a vector allowing it to be stored contiguously but access is provided though a shared_ptr accessor. This ensures that while a user holds an accessor to an element, it will not be removed from the pool.
+
+If Remove all called for an element, it is moved to a garbage list where it can no longer be accessed except by already active accessors. Once all accessor are destroyed, the element will be moved to the free list where it can be assigned again. This is done through a custom deleter in the shared_ptr.
+
