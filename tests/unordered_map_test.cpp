@@ -1,224 +1,224 @@
 #include "AsyncLib/unordered_map.hpp"
 
-#include "gmock/gmock.h"
-using namespace ::testing;
+#include "catch2/catch_test_macros.hpp"
+#include "helpers.hpp"
 
-class AsyncUnorderedMapTest : public Test {};
-
-TEST_F(AsyncUnorderedMapTest, SizeZeroOnDefaultConstruction) {
-  async_lib::UnorderedMap<int, int> map;
-  ASSERT_EQ(0, map.Size());
-}
-
-TEST_F(AsyncUnorderedMapTest, ConstructWithElements) {
-  async_lib::UnorderedMap<int, int> map{{1, 1}, {2, 2}, {3, 3}};
-  ASSERT_EQ(3, map.Size());
-}
-
-TEST_F(AsyncUnorderedMapTest, ConstructFromUnorderedMap) {
-  std::unordered_map<int, int> map{{1, 1}, {2, 2}, {3, 3}};
-  async_lib::UnorderedMap<int, int> map2(map);
-  ASSERT_EQ(3, map2.Size());
-}
-
-TEST_F(AsyncUnorderedMapTest, AccessElementWithBracketOperator) {
-  async_lib::UnorderedMap<int, int> map{{1, 1}, {2, 2}, {3, 3}};
-  ASSERT_TRUE(map[1] == 1 && map[2] == 2 && map[3] == 3);
-}
-
-TEST_F(AsyncUnorderedMapTest, AccessCreatesDefaultIfDoesNotExist) {
-  async_lib::UnorderedMap<int, int> map;
-  ASSERT_TRUE(map[1] == int{});
-}
-
-TEST_F(AsyncUnorderedMapTest, AtAccessCanAccessConstMap) {
-  async_lib::UnorderedMap<int, int> const map{{1, 1}, {2, 2}, {3, 3}};
-  ASSERT_TRUE(map.At(1) == 1 && map.At(2) == 2 && map.At(3) == 3);
-}
-
-TEST_F(AsyncUnorderedMapTest, UpdateElementUsingAccessor) {
-  async_lib::UnorderedMap<int, int> map;
-  map[1] = 1;
-  ASSERT_TRUE(map[1] == 1);
-}
-
-TEST_F(AsyncUnorderedMapTest, InsertElement) {
-  async_lib::UnorderedMap<int, int> map;
-  map.Insert(std::pair<int, int>(1, 1));
-  ASSERT_TRUE(map[1] == 1);
-}
-
-TEST_F(AsyncUnorderedMapTest, InsertRangeFromAnotherMap) {
-  async_lib::UnorderedMap<int, int> map{{1, 1}, {2, 2}};
-  async_lib::UnorderedMap<int, int> map2;
-  map2.Insert(map.begin(), map.end());
-  ASSERT_TRUE(map[1] == 1 && map[2] == 2);
-}
-
-TEST_F(AsyncUnorderedMapTest, InsertFromInitializerList) {
-  async_lib::UnorderedMap<int, int> map;
-  map.Insert({{1, 1}, {2, 2}});
-  ASSERT_TRUE(map[1] == 1 && map[2] == 2);
-}
-
-TEST_F(AsyncUnorderedMapTest, EmplaceElement) {
-  async_lib::UnorderedMap<int, int> map;
-  map.Emplace(1, 1);
-  ASSERT_TRUE(map[1] == 1);
-}
-
-TEST_F(AsyncUnorderedMapTest, EraseFromKey) {
-  async_lib::UnorderedMap<int, int> map{{1, 1}, {2, 2}};
-  map.Erase(1);
-  ASSERT_FALSE(map.Contains(1));
-}
-
-TEST_F(AsyncUnorderedMapTest, EraseFromIterator) {
-  async_lib::UnorderedMap<int, int> map{{1, 1}, {2, 2}};
-  map.Erase(map.Find(1));
-  ASSERT_FALSE(map.Contains(1));
-}
-
-TEST_F(AsyncUnorderedMapTest, ClearMap) {
-  async_lib::UnorderedMap<int, int> map{{1, 1}, {2, 2}};
-  map.Clear();
-  ASSERT_FALSE(map.Contains(1) || map.Contains(2));
-}
-
-class AsyncUnorderedMapConcurrentTest : public Test {
- public:
-  void RunInParallel(int nThreads, std::function<void(int)>&& function) {
-    std::vector<std::shared_ptr<std::thread>> threads;
-    for (int i = 0; i < nThreads; ++i) {
-      threads.push_back(std::make_shared<std::thread>(function, i));
-    }
-    for (auto& thread : threads) {
-      thread->join();
-    }
-  }
-};
-
-TEST_F(AsyncUnorderedMapConcurrentTest, CanInsertKeyValueElementsInParalell) {
-  async_lib::UnorderedMap<int, int> map;
-  RunInParallel(100, [&](int thread) {
-    for (uint32_t i = 0; i < 500; ++i) {
-      map.Insert((thread * 500) + i, 0);
-    }
-  });
-  ASSERT_EQ(100 * 500, map.Size());
-}
-
-TEST_F(AsyncUnorderedMapConcurrentTest, CanInsertPairElementsInParalell) {
-  async_lib::UnorderedMap<int, int> map;
-  RunInParallel(100, [&](int thread) {
-    for (uint32_t i = 0; i < 500; ++i) {
-      map.Insert({(thread * 500) + i, 0});
-    }
-  });
-  ASSERT_EQ(100 * 500, map.Size());
-}
-
-TEST_F(AsyncUnorderedMapConcurrentTest, CanInsertInitialiserListsInParalell) {
-  async_lib::UnorderedMap<int, int> map;
-  RunInParallel(100, [&](int thread) {
-    for (uint32_t i = 0; i < 500; ++i) {
-      auto key = (thread * 1000) + (i * 2);
-      map.Insert({{key, 0}, {key + 1, 0}});
-    }
-  });
-  ASSERT_EQ(100 * 1000, map.Size());
-}
-
-TEST_F(AsyncUnorderedMapConcurrentTest, CanInsertFromIteratorsInParalell) {
-  async_lib::UnorderedMap<int, int> map;
-  RunInParallel(100, [&](int thread) {
-    for (uint32_t i = 0; i < 500; ++i) {
-      auto key = (thread * 1000) + (i * 2);
-      async_lib::UnorderedMap<int, int> map2{{key, 0}, {key + 1, 0}};
-      map.Insert(map2.begin(), map2.end());
-    }
-  });
-  ASSERT_EQ(100 * 1000, map.Size());
-}
-
-TEST_F(AsyncUnorderedMapConcurrentTest, CanEmplaceElementsInParalell) {
-  async_lib::UnorderedMap<int, int> map;
-  RunInParallel(100, [&](int thread) {
-    for (uint32_t i = 0; i < 500; ++i) {
-      map.Emplace((thread * 500) + i, 0);
-    }
-  });
-  ASSERT_EQ(100 * 500, map.Size());
-}
-
-TEST_F(AsyncUnorderedMapConcurrentTest, CanEraseElementsInParalell) {
-  async_lib::UnorderedMap<int, int> map;
-  for (uint32_t i = 0; i < 500 * 100; ++i) {
-    map.Insert(i, 0);
+TEST_CASE("Unordered map tests") {
+  SECTION("Size Zero On Default Construction") {
+    async_lib::UnorderedMap<int, int> map;
+    REQUIRE(0 == map.Size());
   }
 
-  RunInParallel(100, [&](int thread) {
-    for (uint32_t i = 0; i < 500; ++i) {
-      map.Erase((thread * 500) + i);
-    }
-  });
-  ASSERT_EQ(0, map.Size());
-}
+  SECTION("Construct With Elements") {
+    async_lib::UnorderedMap<int, int> map{{1, 1}, {2, 2}, {3, 3}};
+    REQUIRE(3 == map.Size());
+  }
 
-TEST_F(AsyncUnorderedMapConcurrentTest, CanClearInParalell) {
-  async_lib::UnorderedMap<int, int> map;
-  RunInParallel(100, [&](int thread) {
-    for (uint32_t i = 0; i < 500; ++i) {
-      map.Insert((thread * 500) + i, 0);
-      map.Clear();
-    }
-  });
-  ASSERT_EQ(0, map.Size());
-}
+  SECTION("Construct From Unordered Map") {
+    std::unordered_map<int, int> map{{1, 1}, {2, 2}, {3, 3}};
+    async_lib::UnorderedMap<int, int> map2(map);
+    REQUIRE(3 == map2.Size());
+  }
 
-TEST_F(AsyncUnorderedMapConcurrentTest, CanAccessInParalellWhileEditing) {
-  async_lib::UnorderedMap<int, int> map;
-  RunInParallel(100, [&](int thread) {
-    for (uint32_t i = 0; i < 500; ++i) {
-      int key = (thread * 500) + i;
-      map.Insert(key, key);
-      ASSERT_EQ(key, map[key]);
-      map.Erase(key);
-    }
-  });
-}
+  SECTION("Access Element With Bracket Operator") {
+    async_lib::UnorderedMap<int, int> map{{1, 1}, {2, 2}, {3, 3}};
+    REQUIRE(1 == map[1]);
+    REQUIRE(2 == map[2]);
+    REQUIRE(3 == map[3]);
+  }
 
-TEST_F(AsyncUnorderedMapConcurrentTest, CanAccessWithAtInParalellWhileEditing) {
-  async_lib::UnorderedMap<int, int> map;
-  RunInParallel(100, [&](int thread) {
-    for (uint32_t i = 0; i < 500; ++i) {
-      int key = (thread * 500) + i;
-      map.Insert(key, key);
-      ASSERT_EQ(key, map.At(key));
-      map.Erase(key);
-    }
-  });
-}
+  SECTION("Access Creates Default If Does Not Exist") {
+    async_lib::UnorderedMap<int, int> map;
+    REQUIRE(map[1] == int{});
+  }
 
-TEST_F(AsyncUnorderedMapConcurrentTest, CanCheckContainsInParalell) {
-  async_lib::UnorderedMap<int, int> map;
-  RunInParallel(100, [&](int thread) {
-    for (uint32_t i = 0; i < 500; ++i) {
-      int key = (thread * 500) + i;
-      map.Insert(key, key);
-      ASSERT_TRUE(map.Contains(key));
-      map.Erase(key);
-    }
-  });
-}
+  SECTION("At Access Can Access Const Map") {
+    async_lib::UnorderedMap<int, int> const map{{1, 1}, {2, 2}, {3, 3}};
+    REQUIRE(1 == map.At(1));
+    REQUIRE(2 == map.At(2));
+    REQUIRE(3 == map.At(3));
+  }
 
-TEST_F(AsyncUnorderedMapConcurrentTest, CanFindInParalell) {
-  async_lib::UnorderedMap<int, int> map;
-  RunInParallel(100, [&](int thread) {
-    for (uint32_t i = 0; i < 500; ++i) {
-      int key = (thread * 500) + i;
-      map.Insert(key, key);
-      map.Erase(map.Find(key));
+  SECTION("Update Element Using Accessor") {
+    async_lib::UnorderedMap<int, int> map;
+    map[1] = 1;
+    REQUIRE(1 == map[1]);
+  }
+
+  SECTION("Insert Element") {
+    async_lib::UnorderedMap<int, int> map;
+    map.Insert(std::pair<int, int>(1, 1));
+    REQUIRE(1 == map[1]);
+  }
+
+  SECTION("Insert Range From Another Map") {
+    async_lib::UnorderedMap<int, int> map{{1, 1}, {2, 2}};
+    async_lib::UnorderedMap<int, int> map2;
+    map2.Insert(map.begin(), map.end());
+    REQUIRE(1 == map[1]);
+    REQUIRE(2 == map[2]);
+  }
+
+  SECTION("Insert From Initializer List") {
+    async_lib::UnorderedMap<int, int> map;
+    map.Insert({{1, 1}, {2, 2}});
+    REQUIRE(1 == map[1]);
+    REQUIRE(2 == map[2]);
+  }
+
+  SECTION("Emplace Element") {
+    async_lib::UnorderedMap<int, int> map;
+    map.Emplace(1, 1);
+    REQUIRE(1 == map[1]);
+  }
+
+  SECTION("Erase From Key") {
+    async_lib::UnorderedMap<int, int> map{{1, 1}, {2, 2}};
+    map.Erase(1);
+    REQUIRE(!map.Contains(1));
+  }
+
+  SECTION("Erase From Iterator") {
+    async_lib::UnorderedMap<int, int> map{{1, 1}, {2, 2}};
+    map.Erase(map.Find(1));
+    REQUIRE(!map.Contains(1));
+  }
+
+  SECTION("Clear Map") {
+    async_lib::UnorderedMap<int, int> map{{1, 1}, {2, 2}};
+    map.Clear();
+    REQUIRE(!map.Contains(1));
+    REQUIRE(!map.Contains(2));
+  }
+
+  SECTION("Unordered map concurrent tests") {
+    SECTION("Can Insert Key Value Elements In Paralell") {
+      async_lib::UnorderedMap<int, int> map;
+      RunInParallel(100, [&](int thread) {
+        for (uint32_t i = 0; i < 500; ++i) {
+          map.Insert((thread * 500) + i, 0);
+        }
+      });
+      REQUIRE(100 * 500 == map.Size());
     }
-  });
+
+    SECTION("Can Insert Pair Elements In Paralell") {
+      async_lib::UnorderedMap<int, int> map;
+      RunInParallel(100, [&](int thread) {
+        for (uint32_t i = 0; i < 500; ++i) {
+          map.Insert({(thread * 500) + i, 0});
+        }
+      });
+      REQUIRE(100 * 500 == map.Size());
+    }
+
+    SECTION("Can Insert Initialiser Lists In Paralell") {
+      async_lib::UnorderedMap<int, int> map;
+      RunInParallel(100, [&](int thread) {
+        for (uint32_t i = 0; i < 500; ++i) {
+          auto key = (thread * 1000) + (i * 2);
+          map.Insert({{key, 0}, {key + 1, 0}});
+        }
+      });
+      REQUIRE(100 * 1000 == map.Size());
+    }
+
+    SECTION("Can Insert From Iterators In Paralell") {
+      async_lib::UnorderedMap<int, int> map;
+      RunInParallel(100, [&](int thread) {
+        for (uint32_t i = 0; i < 500; ++i) {
+          auto key = (thread * 1000) + (i * 2);
+          async_lib::UnorderedMap<int, int> map2{{key, 0}, {key + 1, 0}};
+          map.Insert(map2.begin(), map2.end());
+        }
+      });
+      REQUIRE(100 * 1000 == map.Size());
+    }
+
+    SECTION("Can Emplace Elements In Paralell") {
+      async_lib::UnorderedMap<int, int> map;
+      RunInParallel(100, [&](int thread) {
+        for (uint32_t i = 0; i < 500; ++i) {
+          map.Emplace((thread * 500) + i, 0);
+        }
+      });
+      REQUIRE(100 * 500 == map.Size());
+    }
+
+    SECTION("Can Erase Elements In Paralell") {
+      async_lib::UnorderedMap<int, int> map;
+      for (uint32_t i = 0; i < 500 * 100; ++i) {
+        map.Insert(i, 0);
+      }
+
+      RunInParallel(100, [&](int thread) {
+        for (uint32_t i = 0; i < 500; ++i) {
+          map.Erase((thread * 500) + i);
+        }
+      });
+      REQUIRE(0 == map.Size());
+    }
+
+    SECTION("Can Clear In Paralell") {
+      async_lib::UnorderedMap<int, int> map;
+      RunInParallel(100, [&](int thread) {
+        for (uint32_t i = 0; i < 500; ++i) {
+          map.Insert((thread * 500) + i, 0);
+          map.Clear();
+        }
+      });
+      REQUIRE(0 == map.Size());
+    }
+
+    SECTION("Can Access In Paralell While Editing") {
+      async_lib::UnorderedMap<int, int> map;
+      RunInParallel(100, [&](int thread) {
+        for (uint32_t i = 0; i < 500; ++i) {
+          int key = (thread * 500) + i;
+          map.Insert(key, key);
+          // TODO: this might not work
+          REQUIRE(key == map[key]);
+          map.Erase(key);
+        }
+      });
+    }
+
+    SECTION("Can Access With At In Paralell While Editing") {
+      async_lib::UnorderedMap<int, int> map;
+      RunInParallel(100, [&](int thread) {
+        for (uint32_t i = 0; i < 500; ++i) {
+          int key = (thread * 500) + i;
+          map.Insert(key, key);
+          // TODO: this might not work
+          REQUIRE(key == map.At(key));
+          map.Erase(key);
+        }
+      });
+    }
+
+    SECTION("Can Check Contains In Paralell") {
+      async_lib::UnorderedMap<int, int> map;
+      RunInParallel(100, [&](int thread) {
+        for (uint32_t i = 0; i < 500; ++i) {
+          int key = (thread * 500) + i;
+          map.Insert(key, key);
+          // TODO: this might not work
+          REQUIRE(map.Contains(key));
+          map.Erase(key);
+        }
+      });
+    }
+
+    // TODO: Not finished
+    SECTION("Can Find In Paralell") {
+      async_lib::UnorderedMap<int, int> map;
+      RunInParallel(100, [&](int thread) {
+        for (uint32_t i = 0; i < 500; ++i) {
+          int key = (thread * 500) + i;
+          map.Insert(key, key);
+          map.Erase(map.Find(key));
+        }
+      });
+    }
+  }
 }
